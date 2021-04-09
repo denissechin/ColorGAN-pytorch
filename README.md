@@ -4,8 +4,7 @@
 
 # Overview
 ***
-- Model
-- Dataset Flickr30k
+- Dataset: Flickr30k
 - Development environment:
 
 Python 3.7.9
