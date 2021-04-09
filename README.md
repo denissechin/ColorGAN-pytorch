@@ -1,6 +1,6 @@
 # ColorGAN
 ***
- GAN for image colorizing
+ GAN with ResnetUnet backbone for image colorizing
 
 # Overview
 ***
