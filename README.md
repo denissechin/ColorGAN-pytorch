@@ -40,4 +40,5 @@ Left image is a predicted one, right - ground truth
 ***
 - Try augmentations
 - Train more epochs
+- Train with higher resolution
 - Implement comfortable prediction code
