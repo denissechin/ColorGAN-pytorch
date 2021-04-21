@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
-
+import torchvision
 
 
 class loss_holder(object):
@@ -36,7 +36,7 @@ class loss_holder(object):
 
 def print_image(image):
     plt.figure(figsize=(5, 5))
-    plt.imshow(np.transpose(utils.make_grid(image.cpu(), padding=2, normalize=True).cpu(),(1,2,0)));
+    plt.imshow(np.transpose(torchvision.utils.make_grid(image.cpu(), padding=2, normalize=True).cpu(),(1,2,0)));
     plt.axis('off');
     plt.show();    
 
