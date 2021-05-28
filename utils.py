@@ -5,35 +5,6 @@ import torch.nn as nn
 import torchvision
 
 
-class loss_holder(object):
-    
-    def __init__(self):
-        self.losses = dict()
-        self.losses['D_real_losses'] = []
-        self.losses['D_fake_losses'] = []
-        self.losses['G_losses'] = []
-        self.losses['Adv_losses'] = []
-        
-    def clear_values_(self):
-        self.losses['D_real_losses'] = []
-        self.losses['D_fake_losses'] = []
-        self.losses['G_losses'] = []
-        self.losses['Adv_losses'] = []
-        
-    def add_batch_(self, D_real, D_fake, G, Adv):
-        self.losses['D_real_losses'].append(float(D_real))
-        self.losses['D_fake_losses'].append(float(D_fake))
-        self.losses['G_losses'].append(float(G))
-        self.losses['Adv_losses'].append(float(Adv))
-        
-    def get_means(self):
-        D_real_losses = np.mean(self.losses['D_real_losses'])
-        D_fake_losses = np.mean(self.losses['D_fake_losses'])
-        G_losses = np.mean(self.losses['G_losses'])
-        Adv_losses = np.mean(self.losses['Adv_losses'])
-        return {'D_fake_loss':D_fake_losses, 'D_real_loss':D_real_losses, 'G_loss':G_losses, 'Adv_loss':Adv_losses}
-
-
 def print_image(image):
     plt.figure(figsize=(5, 5))
     plt.imshow(np.transpose(torchvision.utils.make_grid(image.cpu(), padding=2, normalize=True).cpu(),(1,2,0)));

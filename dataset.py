@@ -3,33 +3,28 @@ from torchvision.datasets import ImageFolder
 from torch.utils.data import Dataset
 
 
-transform_to_input_image = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(256),
-            transforms.Grayscale(num_output_channels=1),
-            transforms.ToTensor()
-])
-
-transform_to_target_image = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(256),
-            transforms.ToTensor()
-])
 
 
+def read_image(path):
+    return cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB)
+
+def transfer_to_gray(img):
+    return cv2.cvtColor(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), cv2.COLOR_GRAY2RGB)
 
 class Gray_colored_dataset(Dataset):
     
-    def __init__(self, path, transform_colored, transform_gray):
-        self.gray_dataset = ImageFolder(path, transform=transform_gray)
-        self.colored_dataset = ImageFolder(path, transform=transform_colored)
-    
+    def __init__(self, paths, transforms):
+        self.paths = paths
+        self.transforms = transforms
+        
     def __len__(self):
-        return(len(self.gray_dataset))
+        return(len(self.paths))
         
     def __getitem__(self, idx):
-        gray_img = self.gray_dataset[idx][0]
-        colored_img = self.colored_dataset[idx][0]
-        return (gray_img, colored_img)
-
-
+        rgb_img = read_image(self.paths[idx])
+        gray_img = transfer_to_gray(rgb_img)
+        transformed = self.transforms(image=rgb_img, grayscale_image=gray_img)
+        return {
+            'rgb_image' : transformed['image'],
+            'grayscale_image' : transformed['grayscale_image']
+        }

@@ -3,6 +3,82 @@ import torch.nn as nn
 import torchvision.models
 from spectral import SpectralNorm
 
+import torch
+from torch import nn
+from torchvision import models
+
+    
+class Colorization(pl.LightningModule):
+    
+    def __init__(self, jpg_paths, transforms, ndf):
+        super().__init__()
+        self.generator = ResNetUNetGenerator()
+        self.discriminator = Discriminator(256, ndf)
+        self.jpg_paths = jpg_paths
+        self.transforms = transforms
+
+        self.losses = {"l2": nn.MSELoss(), "bce": BCE(), "l1": nn.L1Loss()}
+
+    def forward(self, batch) -> torch.Tensor: 
+        return self.generator(batch)
+
+    def train_dataloader(self):
+        dataset = Gray_colored_dataset(self.jpg_paths, self.transforms)
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=24, shuffle=True)
+
+        return dataloader
+
+    def configure_optimizers(self):
+        
+        optimizer_generator = torch.optim.AdamW(self.generator.parameters(), lr = 0.0001, betas=(0.5, 0.999))
+
+        optimizer_discriminator = torch.optim.AdamW(self.discriminator.parameters(), lr = 0.0001, betas=(0.5, 0.999))
+
+        return [optimizer_generator, optimizer_discriminator]
+
+    def training_step(self, batch, batch_idx, optimizer_idx):
+        rgb_images = batch["rgb_image"]
+        grayscale_images = batch["grayscale_image"]
+
+        if optimizer_idx == 0:  # train generator
+            # Generator output
+            self.output = self.generator(grayscale_images)
+
+            l2_loss = self.losses["l2"](rgb_images, self.output).sqrt()
+            l1_loss = self.losses["l1"](rgb_images, self.output)
+
+            fake_scalar = self.discriminator(self.output)
+
+            gan_loss = nn.BCEWithLogitsLoss()(fake_scalar, torch.ones_like(fake_scalar))
+
+            total_loss = (
+                (l2_loss
+                + l1_loss) * 0.5
+                + gan_loss * 1e-2
+            )
+            
+            self.log("l1", l1_loss, on_step=True, on_epoch=True, logger=True, prog_bar=True)
+            self.log("l2", l2_loss, on_step=True, on_epoch=True, logger=True, prog_bar=True)
+            self.log("gan", gan_loss, on_step=True, on_epoch=True, logger=True, prog_bar=True)
+            self.log("total_loss", total_loss, on_step=True, on_epoch=True, logger=True, prog_bar=True)
+
+            return total_loss
+
+        if optimizer_idx == 1:  # train discriminator
+            fake_scalar = self.discriminator(self.output.detach())
+            true_scalar = self.discriminator(rgb_images)
+
+            true_loss = nn.BCEWithLogitsLoss()(true_scalar, torch.ones_like(true_scalar))
+            fake_loss = nn.BCEWithLogitsLoss()(fake_scalar, torch.zeros_like(fake_scalar))
+
+            loss_discriminator = (true_loss + fake_loss) / 2
+
+            self.log("discriminator", loss_discriminator, on_step=True, on_epoch=True, logger=True, prog_bar=True)
+            self.log("discriminator_true", true_loss, on_step=True, on_epoch=True, logger=True, prog_bar=True)
+            self.log("discriminator_fake", fake_loss, on_step=True, on_epoch=True, logger=True, prog_bar=True)
+
+            return (true_loss + fake_loss) / 2
+
 def conv_relu_block(in_channels, out_channels, kernel, padding):
     return nn.Sequential(
         nn.Conv2d(in_channels, out_channels, kernel, padding=padding),
@@ -24,9 +100,7 @@ class ResNetUNetGenerator(nn.Module):
 
 
 
-        self.layer0 = nn.Sequential(nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False),
-                                    nn.BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
-                                    nn.ReLU(inplace=True),) # first resnet layer adapted for 1 channel input
+        self.layer0 = nn.Sequential(*self.resnet_layers[:3])
         self.layer1 = nn.Sequential(*self.resnet_layers[3:5]) # size=(N, 64, x.H/4, x.W/4)
         self.layer2 = self.resnet_layers[5]  # size=(N, 128, x.H/8, x.W/8)
         self.layer3 = self.resnet_layers[6]  # size=(N, 256, x.H/16, x.W/16)
@@ -117,7 +191,7 @@ class ResNetUNetGenerator(nn.Module):
     
     
 class Discriminator(nn.Module):
-    def __init__(self, ndf, input_height):
+    def __init__(self, input_height, ndf):
         super(Discriminator, self).__init__()
         self.main = nn.Sequential(
             # input is (nc) input_height
